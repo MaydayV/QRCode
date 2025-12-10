@@ -1,0 +1,14 @@
+.DS_Store
+node_modules
+.next
+.turbo
+.vercel
+coverage
+dist
+build
+tmp
+*.log
+*.pem
+.env
+.env.*
+

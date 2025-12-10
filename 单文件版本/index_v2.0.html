@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>物料箱单标签生成器</title>
+  <script src="https://cdn.jsdelivr.net/npm/bwip-js@2.1.10/dist/bwip-js-min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "PingFang SC", system-ui, -apple-system, sans-serif;
+      --bg: #f5f7f9;
+      --panel: #ffffff;
+      --panel-soft: #f9fbff;
+      --accent: #2d9a4a;          /* 绿色 */
+      --accent-strong: #188038;   /* 深绿 */
+      --accent-soft: rgba(45, 154, 74, 0.1);
+      --highlight: #f59e0b;       /* 橙色 */
+      --border-subtle: #d8dee4;
+      --text-main: #1f2933;
+      --text-muted: #6b7280;
+      --danger: #d14343;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 28px 16px 32px;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 50%, #e8f0f5 100%);
+      color: var(--text-main);
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      width: min(1180px, 100%);
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 20px 20px 18px;
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin: 0 0 10px;
+    }
+
+    .tips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .tip-pill {
+      padding: 4px 11px;
+      border-radius: 999px;
+      background: #eef2f7;
+      border: 1px dashed var(--border-subtle);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tip-pill code {
+      font-size: 0.78rem;
+      color: var(--accent-strong);
+    }
+
+    form {
+      padding: 14px 14px 12px;
+      border-radius: 12px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    #inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 9px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+    }
+
+    label strong {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .label-tag {
+      font-size: 0.7rem;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-strong);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: 8px 9px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.82rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: #f9fafb;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+
+    textarea::placeholder {
+      color: rgba(107, 114, 128, 0.8);
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(45, 154, 74, 0.5), 0 0 0 6px rgba(45, 154, 74, 0.14);
+      background: #ffffff;
+    }
+
+    .form-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .vd-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+      color: var(--text-main);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+
+    .vd-field span {
+      display: inline-block;
+      min-width: 62px;
+    }
+
+    .vd-field input {
+      width: 140px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+      outline: none;
+      background: #f9fafb;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+
+    .vd-field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(45, 154, 74, 0.35);
+      background: #ffffff;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    button:not(.btn-soft) {
+      border-radius: 999px;
+      border: none;
+      padding: 9px 20px;
+      font-size: 0.92rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent) 0%, #49c26b 60%, #f3a847 100%);
+      color: #0b1b15;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow:
+        0 10px 22px rgba(73, 194, 107, 0.28),
+        0 0 0 1px rgba(45, 154, 74, 0.45);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+    }
+
+    button:not(.btn-soft):hover {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+      box-shadow:
+        0 14px 28px rgba(73, 194, 107, 0.32),
+        0 0 0 1px rgba(243, 168, 71, 0.65);
+    }
+
+    button:not(.btn-soft):active {
+      transform: translateY(0);
+      box-shadow:
+        0 10px 18px rgba(73, 194, 107, 0.28),
+        0 0 0 1px rgba(45, 154, 74, 0.65);
+    }
+
+    button span.icon {
+      font-size: 1.1rem;
+    }
+
+    .error {
+      color: var(--danger);
+      margin-bottom: 10px;
+      font-weight: 500;
+      font-size: 0.86rem;
+    }
+
+    .results-wrapper {
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #ffffff 0%, #f7fbff 50%, #f3f6f9 100%);
+      border: 1px solid var(--border-subtle);
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow:
+        0 16px 32px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 2px 2px;
+    }
+
+    .results-title {
+      font-size: 0.95rem;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 650;
+    }
+
+    .results-title-badge {
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--accent-strong);
+      background: #ecf7f0;
+      letter-spacing: 0.02em;
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      padding: 14px;
+      border-radius: 16px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 14px 30px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 650;
+      color: var(--text-main);
+    }
+
+    .card-pill {
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: #f5f7fa;
+      border: 1px dashed var(--border-subtle);
+      color: var(--text-main);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.82rem;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      word-break: break-all;
+      text-align: center;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease;
+    }
+
+    .card-pill::after {
+      content: attr(data-hint);
+      position: absolute;
+      left: 50%;
+      bottom: -26px;
+      transform: translateX(-50%);
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #fff;
+      font-size: 0.72rem;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
+    }
+
+    .card-pill:hover::after {
+      opacity: 0.92;
+    }
+
+    .card-pill.copy-success {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(45, 154, 74, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .card img {
+      width: 100%;
+      max-width: 320px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.10),
+        0 0 0 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 8px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: flex-end;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>
+        物料入库箱单批量制作工具
+        <span class="badge">MATERIAL INBOUND BOX LABEL TOOL</span>
+      </h1>
+    </header>
+    <p class="subtitle">支持 1–5 组序列号，按照行号用 <code>||</code> 自动拼接生成物料箱单标签，同时自动生成整张标签图。</p>
+
+    <div class="tips">
+      <span class="tip-pill">每个输入框 <strong>一行一条序列号</strong></span>
+      <span class="tip-pill">仅使用已填写的输入框</span>
+      <span class="tip-pill">行数必须一致，例如：3 行 + 3 行 + 3 行</span>
+      <span class="tip-pill">拼接格式：<code>111||222||333</code></span>
+    </div>
+
+    <form id="codeForm">
+      <div id="inputs"></div>
+      <div class="form-footer">
+        <label class="vd-field">
+          <input id="vdInput" type="text" placeholder="Vendor code" autocomplete="off">
+        </label>
+        <p class="hint">填完后点击按钮，一次性生成所有行的物料箱单标签。</p>
+        <button type="submit">
+          <span class="icon">📄</span>
+          生成标签
+        </button>
+      </div>
+    </form>
+    <div id="message" class="error" hidden></div>
+
+    <div class="results-wrapper">
+      <div class="results-header">
+        <div class="results-title">
+          输出结果
+          <span class="results-title-badge">拼接文本 + 整张标签图</span>
+        </div>
+      </div>
+      <section id="results" class="results"></section>
+    </div>
+    <div class="footer">适用于物料箱 BOX ID / 物料箱单标签快速生成场景。</div>
+  </main>
+
+  <template id="inputTemplate">
+    <label>
+      <strong>序列输入</strong>
+      <textarea placeholder="每行一条序列号"></textarea>
+    </label>
+  </template>
+
+  <script>
+    const MAX_FIELDS = 5;
+    const inputsWrapper = document.getElementById('inputs');
+    const inputTpl = document.getElementById('inputTemplate');
+    const form = document.getElementById('codeForm');
+    const message = document.getElementById('message');
+    const results = document.getElementById('results');
+    const vdInput = document.getElementById('vdInput');
+    const VD_STORAGE_KEY = 'vd-code';
+
+    const labelHints = [
+      'BOX ID',
+      'P/N',
+      'QTY',
+      '4L',
+      'Maker'
+    ];
+
+    for (let i = 0; i < MAX_FIELDS; i += 1) {
+      const clone = inputTpl.content.cloneNode(true);
+      const labelEl = clone.querySelector('strong');
+      const textareaEl = clone.querySelector('textarea');
+
+      labelEl.dataset.baseLabel = `编码 ${i + 1}${labelHints[i] ? ` · ${labelHints[i]}` : ''}`;
+      labelEl.textContent = labelEl.dataset.baseLabel;
+      textareaEl.placeholder = labelHints[i] || '每行一条序列号';
+
+      textareaEl.addEventListener('input', () => {
+        const rawLines = textareaEl.value.split(/\r?\n/);
+        const nonEmptyCount = rawLines.filter(line => line.trim().length).length;
+        if (nonEmptyCount > 0) {
+          labelEl.textContent = `${labelEl.dataset.baseLabel}（${nonEmptyCount} 行）`;
+        } else {
+          labelEl.textContent = labelEl.dataset.baseLabel;
+        }
+      });
+
+      inputsWrapper.appendChild(clone);
+    }
+
+    // 初始化 VD 输入：读取本地存储并自动保存更新
+    const savedVD = localStorage.getItem(VD_STORAGE_KEY);
+    if (savedVD) {
+      vdInput.value = savedVD;
+    }
+    vdInput.addEventListener('input', () => {
+      localStorage.setItem(VD_STORAGE_KEY, vdInput.value.trim());
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      message.hidden = true;
+      message.textContent = '';
+      results.innerHTML = '';
+
+      const dataColumns = Array.from(inputsWrapper.querySelectorAll('textarea'))
+        .map(area => area.value.split(/\r?\n/).map(line => line.trim()).filter(line => line.length))
+        .filter(column => column.length);
+
+      if (dataColumns.length === 0) {
+        showError('请至少填写一个输入框。');
+        return;
+      }
+
+      const targetLength = dataColumns[0].length;
+      const mismatched = dataColumns.some(column => column.length !== targetLength);
+      if (mismatched) {
+        showError('所有已填写的输入框必须包含相同数量的行。');
+        return;
+      }
+
+      try {
+        await renderLabelImage(dataColumns);
+      } catch (err) {
+        console.error(err);
+        showError(err.message || '生成标签失败，请稍后重试。');
+      }
+    });
+
+    function showError(text) {
+      message.textContent = text;
+      message.hidden = false;
+    }
+
+    async function renderLabelImage(columns) {
+      const [boxCol = [], pnCol = [], qtyCol = [], extraCol = [], makerCol = []] = columns;
+      const rowCount = boxCol.length;
+
+      results.innerHTML = '';
+
+      // 使用 SVG viewBox 坐标系对齐：原图 233.93 × 218.58，对应像素 1700 × 1900
+      const VIEW_W = 233.93;
+      const VIEW_H = 218.58;
+      const W = 1700;
+      const H = 1900;
+      const MARGIN = 90; // 外围白边
+      const INNER_W = W - MARGIN * 2;
+      const INNER_H = H - MARGIN * 2;
+      const SCALE_X = INNER_W / VIEW_W;
+      const SCALE_Y = INNER_H / VIEW_H;
+      const pxX = v => Math.round(v * SCALE_X);
+      const pxY = v => Math.round(v * SCALE_Y);
+      const pxW = w => Math.round(w * SCALE_X);
+      const pxH = h => Math.round(h * SCALE_Y);
+
+      const fonts = {
+        normal: `${13 * SCALE_Y}px Arial, sans-serif`,
+        vd: `${11 * SCALE_Y}px Arial, sans-serif`
+      };
+
+      const rules = [
+        { y: 46.12, h: 1.3 },
+        { y: 105.65, h: 1.3 },
+        { y: 165.18, h: 1.3 }
+      ];
+
+      const layout = {
+        boxText: { x: 1.41, y: 38.9 },
+        pnText: { x: 1.88, y: 95.59 },
+        qtyText: { x: 1.9, y: 126.77 },
+        maker: { x: 2.29, y: 190.45 },
+        coo: { x: 0.45, y: 211.81 },
+        vd: { x: 166.71, y: 66.71 },
+        barcodeTop: { x: 3.58, y: 0, w: 168 - 3.58, h: 22.68 },
+        barcodeMid: { x: 3.58, y: 56.49, w: 144.31 - 3.58, h: 22.68 },
+        barcodeLow: { x: 3.58, y: 137.48, w: 82.95 - 3.58, h: 22.68 },
+        qr: { x: 168.12, y: 176.06, size: 43.2 }
+      };
+
+      for (let i = 0; i < rowCount; i += 1) {
+        const boxRaw = (boxCol[i] || '').trim();
+        const pnRaw = (pnCol[i] || '').trim();
+        const qtyRaw = (qtyCol[i] || '').trim();
+        const extraRaw = (extraCol[i] || '').trim();
+        const makerRaw = (makerCol[i] || '').trim();
+        const vdFixed = vdInput.value.trim();
+
+        if (!boxRaw || !pnRaw || !qtyRaw) {
+          showError(`第 ${i + 1} 行缺少必填项（BOX ID / P/N / QTY）。`);
+          return;
+        }
+
+        const boxCode = `BB${boxRaw}`;
+        const pnCode = `P${pnRaw}`;
+        const qtyCode = `Q${qtyRaw}`;
+        const qrPayloadParts = [boxCode, pnCode, qtyCode];
+        if (extraRaw) qrPayloadParts.push(extraRaw);
+        const qrText = qrPayloadParts.join('||');
+
+        const vdText = vdFixed || deriveVD(boxRaw);
+        const makerName = makerRaw || 'MAKER';
+        const cooText = extraRaw || 'N/A';
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = W;
+        canvas.height = H;
+
+        // 主画布：白底
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, W, H);
+
+        // 内层画布（内容区）
+        const inner = document.createElement('canvas');
+        inner.width = INNER_W;
+        inner.height = INNER_H;
+        const ictx = inner.getContext('2d');
+
+        // 内层背景
+        ictx.fillStyle = '#fff';
+        ictx.fillRect(0, 0, INNER_W, INNER_H);
+
+        // 分隔线
+        ictx.fillStyle = '#231815';
+        rules.forEach(rule => {
+          ictx.fillRect(pxX(0), pxY(rule.y), pxW(VIEW_W), pxH(rule.h));
+        });
+
+        // 字体与颜色
+        ictx.fillStyle = '#231815';
+        ictx.textBaseline = 'alphabetic';
+        ictx.textAlign = 'left';
+
+        // 区域 1：BOX 顶部条码 + 文本
+        const boxBarcode = await makeBarcode(boxCode);
+        ictx.drawImage(
+          boxBarcode,
+          pxX(layout.barcodeTop.x),
+          pxY(layout.barcodeTop.y),
+          pxW(layout.barcodeTop.w),
+          pxH(layout.barcodeTop.h)
+        );
+        ictx.font = fonts.normal;
+        ictx.fillText(`[B]BOX ID:${boxCode.replace('BB', 'B')}`, pxX(layout.boxText.x), pxY(layout.boxText.y));
+
+        // 区域 2：P/N 条码 + 文本 + VD
+        const pnBarcode = await makeBarcode(pnCode);
+        ictx.drawImage(
+          pnBarcode,
+          pxX(layout.barcodeMid.x),
+          pxY(layout.barcodeMid.y),
+          pxW(layout.barcodeMid.w),
+          pxH(layout.barcodeMid.h)
+        );
+        ictx.font = fonts.normal;
+        ictx.fillText(`[P]P/N:${pnRaw}`, pxX(layout.pnText.x), pxY(layout.pnText.y));
+        ictx.font = fonts.vd;
+        ictx.fillText(`VD:${vdText}`, pxX(layout.vd.x), pxY(layout.vd.y));
+
+        // 区域 3：QTY 条码 + 文本
+        const qtyBarcode = await makeBarcode(qtyCode);
+        ictx.drawImage(
+          qtyBarcode,
+          pxX(layout.barcodeLow.x),
+          pxY(layout.barcodeLow.y),
+          pxW(layout.barcodeLow.w),
+          pxH(layout.barcodeLow.h)
+        );
+        ictx.font = fonts.normal;
+        ictx.fillText(`[Q]QTY:${qtyRaw}`, pxX(layout.qtyText.x), pxY(layout.qtyText.y));
+
+        // 底部文本
+        ictx.fillText('MAKER NAME: ' + makerName, pxX(layout.maker.x), pxY(layout.maker.y));
+        ictx.fillText('(4L)CoO: ' + cooText, pxX(layout.coo.x), pxY(layout.coo.y));
+
+        // 右下角二维码（按 SVG 放置，确保正方形）
+        const qrSizePx = Math.round(Math.min(pxW(layout.qr.size), pxH(layout.qr.size)));
+        const qrImg = await loadImage(`https://api.qrserver.com/v1/create-qr-code/?size=${qrSizePx}x${qrSizePx}&data=${encodeURIComponent(qrText)}`);
+        ictx.drawImage(
+          qrImg,
+          pxX(layout.qr.x),
+          pxY(layout.qr.y),
+          qrSizePx,
+          qrSizePx
+        );
+
+        // 将内容贴到主画布，留出外侧 9px 白边
+        ctx.drawImage(inner, MARGIN, MARGIN);
+
+        // 输出到页面
+        const dataUrl = canvas.toDataURL('image/png');
+        const imgEl = document.createElement('img');
+        imgEl.src = dataUrl;
+        imgEl.alt = `标签预览 ${i + 1}`;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.textContent = `第 ${i + 1} 条`;
+
+        const pill = document.createElement('div');
+        pill.className = 'card-pill';
+        pill.textContent = [boxCode, pnCode, qtyCode, extraRaw || 'N/A', makerName].join('||');
+        pill.dataset.hint = '点击复制组合编码';
+        pill.addEventListener('click', () => {
+          copyToClipboard(pill.textContent)
+            .then(() => {
+              pill.classList.add('copy-success');
+              pill.dataset.hint = '已复制';
+              setTimeout(() => {
+                pill.classList.remove('copy-success');
+                pill.dataset.hint = '点击复制组合编码';
+              }, 1400);
+            })
+            .catch(() => {
+              pill.dataset.hint = '复制失败，请手动复制';
+              setTimeout(() => {
+                pill.dataset.hint = '点击复制组合编码';
+              }, 1600);
+            });
+        });
+
+        card.append(title, pill, imgEl);
+        results.appendChild(card);
+      }
+    }
+
+    function deriveVD(boxRaw) {
+      const digits = boxRaw.replace(/\D/g, '');
+      return digits.slice(0, 6) || boxRaw.slice(0, 6) || '';
+    }
+
+    function makeBarcode(text) {
+      // use a higher scale for better large-size clarity
+      const scale = 8;
+      const height = 28;
+      const src = `https://bwipjs-api.metafloor.com/?bcid=code128&scale=${scale}&height=${height}&includetext=false&textxalign=center&text=${encodeURIComponent(text)}`;
+      return loadImage(src);
+    }
+
+    function copyToClipboard(text) {
+      if (!text) return Promise.reject(new Error('空文本无法复制'));
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+
+      return new Promise((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          const ok = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          ok ? resolve() : reject(new Error('复制失败'));
+        } catch (err) {
+          document.body.removeChild(textarea);
+          reject(err);
+        }
+      });
+    }
+
+    function dataURLToBlob(dataUrl) {
+      const parts = dataUrl.split(',');
+      const mime = parts[0].match(/:(.*?);/)[1];
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], { type: mime });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+  </script>
+</body>
+</html>
+

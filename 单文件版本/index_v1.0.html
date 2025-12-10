@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>隐码序列二维码生成器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "PingFang SC", system-ui, -apple-system, sans-serif;
+      --bg: #f5f7f9;
+      --panel: #ffffff;
+      --panel-soft: #f9fbff;
+      --accent: #2d9a4a;          /* 绿色 */
+      --accent-strong: #188038;   /* 深绿 */
+      --accent-soft: rgba(45, 154, 74, 0.1);
+      --highlight: #f59e0b;       /* 橙色 */
+      --border-subtle: #d8dee4;
+      --text-main: #1f2933;
+      --text-muted: #6b7280;
+      --danger: #d14343;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 28px 16px 32px;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 50%, #e8f0f5 100%);
+      color: var(--text-main);
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      width: min(1180px, 100%);
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 20px 20px 18px;
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin: 0 0 10px;
+    }
+
+    .tips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .tip-pill {
+      padding: 4px 11px;
+      border-radius: 999px;
+      background: #eef2f7;
+      border: 1px dashed var(--border-subtle);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tip-pill code {
+      font-size: 0.78rem;
+      color: var(--accent-strong);
+    }
+
+    form {
+      padding: 14px 14px 12px;
+      border-radius: 12px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    #inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 9px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+    }
+
+    label strong {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .label-tag {
+      font-size: 0.7rem;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-strong);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: 8px 9px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.82rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: #f9fafb;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+
+    textarea::placeholder {
+      color: rgba(107, 114, 128, 0.8);
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(45, 154, 74, 0.5), 0 0 0 6px rgba(45, 154, 74, 0.14);
+      background: #ffffff;
+    }
+
+    .form-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 9px 20px;
+      font-size: 0.92rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent) 0%, #49c26b 60%, #f3a847 100%);
+      color: #0b1b15;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow:
+        0 10px 22px rgba(73, 194, 107, 0.28),
+        0 0 0 1px rgba(45, 154, 74, 0.45);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+      box-shadow:
+        0 14px 28px rgba(73, 194, 107, 0.32),
+        0 0 0 1px rgba(243, 168, 71, 0.65);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow:
+        0 10px 18px rgba(73, 194, 107, 0.28),
+        0 0 0 1px rgba(45, 154, 74, 0.65);
+    }
+
+    button span.icon {
+      font-size: 1.1rem;
+    }
+
+    .error {
+      color: var(--danger);
+      margin-bottom: 10px;
+      font-weight: 500;
+      font-size: 0.86rem;
+    }
+
+    .results-wrapper {
+      padding: 14px 14px 10px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .results-title {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .results-title-badge {
+      padding: 1px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.72rem;
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      padding-top: 4px;
+    }
+
+    .card {
+      padding: 10px 10px 9px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .card > div:first-child {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .code-text {
+      word-break: break-all;
+      font-size: 0.8rem;
+      color: var(--text-main);
+      padding: 6px 7px;
+      border-radius: 7px;
+      background: #f3f6f9;
+      border: 1px dashed var(--border-subtle);
+    }
+
+    .card img {
+      border-radius: 8px;
+      background: white;
+      padding: 4px;
+      box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 8px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: flex-end;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>
+        隐码序列二维码
+        <span class="badge">BOX LABEL TOOL</span>
+      </h1>
+    </header>
+    <p class="subtitle">支持 1–6 组序列号，按照行号用 <code>||</code> 自动拼接生成物料箱隐码二维码。</p>
+
+    <div class="tips">
+      <span class="tip-pill">每个输入框 <strong>一行一条序列号</strong></span>
+      <span class="tip-pill">仅使用已填写的输入框</span>
+      <span class="tip-pill">行数必须一致，例如：3 行 + 3 行 + 3 行</span>
+      <span class="tip-pill">拼接格式：<code>111||222||333</code></span>
+    </div>
+
+    <form id="codeForm">
+      <div id="inputs"></div>
+      <div class="form-footer">
+        <p class="hint">填完后点击按钮，一次性生成所有行的隐码二维码。</p>
+        <button type="submit">
+          <span class="icon">◆</span>
+          生成二维码
+        </button>
+      </div>
+    </form>
+    <div id="message" class="error" hidden></div>
+
+    <div class="results-wrapper">
+      <div class="results-header">
+        <div class="results-title">
+          输出结果
+          <span class="results-title-badge">拼接文本 + 二维码</span>
+        </div>
+      </div>
+      <section id="results" class="results"></section>
+    </div>
+    <div class="footer">适用于物料箱 BOX ID / 隐码标签快速生成场景。</div>
+  </main>
+
+  <template id="inputTemplate">
+    <label>
+      <strong>序列输入</strong>
+      <textarea placeholder="每行一条序列号"></textarea>
+    </label>
+  </template>
+
+  <script>
+    const MAX_FIELDS = 5;
+    const inputsWrapper = document.getElementById('inputs');
+    const inputTpl = document.getElementById('inputTemplate');
+    const form = document.getElementById('codeForm');
+    const message = document.getElementById('message');
+    const results = document.getElementById('results');
+
+    for (let i = 0; i < MAX_FIELDS; i += 1) {
+      const clone = inputTpl.content.cloneNode(true);
+      const labelEl = clone.querySelector('strong');
+      const textareaEl = clone.querySelector('textarea');
+
+      labelEl.dataset.baseLabel = `序列输入 ${i + 1}`;
+      labelEl.textContent = labelEl.dataset.baseLabel;
+
+      textareaEl.addEventListener('input', () => {
+        const rawLines = textareaEl.value.split(/\r?\n/);
+        const nonEmptyCount = rawLines.filter(line => line.trim().length).length;
+        if (nonEmptyCount > 0) {
+          labelEl.textContent = `${labelEl.dataset.baseLabel}（${nonEmptyCount} 行）`;
+        } else {
+          labelEl.textContent = labelEl.dataset.baseLabel;
+        }
+      });
+
+      inputsWrapper.appendChild(clone);
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      message.hidden = true;
+      message.textContent = '';
+      results.innerHTML = '';
+
+      const dataColumns = Array.from(inputsWrapper.querySelectorAll('textarea'))
+        .map(area => area.value.split(/\r?\n/).map(line => line.trim()).filter(line => line.length))
+        .filter(column => column.length);
+
+      if (dataColumns.length === 0) {
+        showError('请至少填写一个输入框。');
+        return;
+      }
+
+      const targetLength = dataColumns[0].length;
+      const mismatched = dataColumns.some(column => column.length !== targetLength);
+      if (mismatched) {
+        showError('所有已填写的输入框必须包含相同数量的行。');
+        return;
+      }
+
+      dataColumns[0].forEach((_, index) => {
+        const merged = dataColumns.map(column => column[index]).join('||');
+        createResultCard(merged, index + 1);
+      });
+    });
+
+    function showError(text) {
+      message.textContent = text;
+      message.hidden = false;
+    }
+
+    function createResultCard(text, seq) {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const label = document.createElement('div');
+      label.innerHTML = `<strong>第 ${seq} 条</strong>`;
+
+      const codeText = document.createElement('div');
+      codeText.className = 'code-text';
+      codeText.textContent = text;
+
+      const qrBox = document.createElement('div');
+      const img = document.createElement('img');
+      img.alt = '隐码二维码';
+      img.width = 180;
+      img.height = 180;
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(text)}`;
+      qrBox.appendChild(img);
+
+      card.append(label, codeText, qrBox);
+      results.appendChild(card);
+    }
+  </script>
+</body>
+</html>
+

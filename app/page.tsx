@@ -32,6 +32,8 @@ export default function Page() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [invalidInputs, setInvalidInputs] = useState<number[]>([]);
 
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+
   useEffect(() => {
     const stored = localStorage.getItem(VD_STORAGE_KEY);
     if (stored) setVd(stored);
@@ -54,6 +56,7 @@ export default function Page() {
     setResults([]);
     setLoading(true);
     setInvalidInputs([]);
+    setProgress(null);
 
     try {
       const columns = inputs.map(text =>
@@ -99,15 +102,64 @@ export default function Page() {
         body: JSON.stringify({ columns, vd }),
       });
 
-      const payload = await res.json();
       if (!res.ok) {
+        const payload = await res.json();
         throw new Error(payload.error || '生成失败');
       }
-      setResults(payload.results as RenderResult[]);
+
+      // 流式读取响应
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('无法读取流式响应');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留不完整的最后一行
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.type === 'meta') {
+              setProgress({ current: 0, total: msg.total });
+            } else if (msg.type === 'result') {
+              setResults(prev => [...prev, msg.data as RenderResult]);
+              setProgress(prev => prev ? { ...prev, current: msg.index + 1 } : null);
+            } else if (msg.type === 'error') {
+              throw new Error(msg.error);
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes('JSON')) {
+              throw parseErr;
+            }
+          }
+        }
+      }
+
+      // 处理剩余的buffer
+      if (buffer.trim()) {
+        try {
+          const msg = JSON.parse(buffer);
+          if (msg.type === 'result') {
+            setResults(prev => [...prev, msg.data as RenderResult]);
+          } else if (msg.type === 'error') {
+            throw new Error(msg.error);
+          }
+        } catch (e) { }
+      }
     } catch (err: any) {
       setError(err?.message || '生成失败，请稍后重试');
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -139,17 +191,33 @@ export default function Page() {
     setDownloading(true);
     try {
       const zip = new JSZip();
-      results.forEach(item => {
+
+      // 使用 for...of 循环确保按顺序正确处理每个文件
+      for (const item of results) {
+        if (!item.image || !item.image.includes(',')) {
+          console.warn('跳过无效图片:', item.filename);
+          continue;
+        }
         const base64 = item.image.split(',')[1];
-        zip.file(item.filename || 'label.png', base64, { base64: true });
+        if (base64) {
+          zip.file(item.filename || 'label.png', base64, { base64: true });
+        }
+      }
+
+      const blob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
       });
-      const blob = await zip.generateAsync({ type: 'blob' });
       const now = new Date();
       const pad = (v: number) => String(v).padStart(2, '0');
       const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
         now.getHours()
       )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       saveAs(blob, `labels-${stamp}.zip`);
+    } catch (err) {
+      console.error('批量下载失败:', err);
+      alert('批量下载失败，请重试');
     } finally {
       setDownloading(false);
     }
@@ -207,7 +275,11 @@ export default function Page() {
         <div className="form-footer">
           <p className="hint">填完后点击按钮，一次性生成所有行的物料箱单标签。</p>
           <button type="submit" disabled={loading}>
-            {loading ? '生成中…' : '生成标签'}
+            {loading
+              ? progress
+                ? `生成中… ${progress.current}/${progress.total}`
+                : '生成中…'
+              : '生成标签'}
           </button>
         </div>
       </form>

@@ -59,59 +59,89 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `可选列若填写需与 BOX ID 行数一致：${optionalPairs[invalidOptional][1]}` }, { status: 400 });
     }
 
-    const results: Array<{ pill: string; image: string; filename: string }> = [];
-    for (let i = 0; i < rowCount; i += 1) {
-      const boxRaw = trim(boxCol[i]);
-      const pnRaw = trim(pnCol[i]);
-      const qtyRaw = trim(qtyCol[i]);
-      const mpnRaw = trim(mpnCol[i]);
-      const makerRaw = trim(makerCol[i]);
-      const fourLRaw = trim(fourLCol[i]).toUpperCase();
-      const fourLCode = fourLRaw ? `4L${fourLRaw}` : '';
-      const vdText = trim(vd) || deriveVD(boxRaw);
-      const makerName = makerRaw || 'MAKER';
-      const cooText = fourLRaw || 'N/A'; // 显示时仅显示 4L 值本身
+    // 使用流式响应，每生成一张图片就立即发送
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // 先发送元数据
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'meta', total: rowCount }) + '\n'));
 
-      if (!boxRaw || !pnRaw || !qtyRaw || !mpnRaw) {
-        return NextResponse.json({ error: `第 ${i + 1} 行缺少必填项` }, { status: 400 });
+          for (let i = 0; i < rowCount; i += 1) {
+            const boxRaw = trim(boxCol[i]);
+            const pnRaw = trim(pnCol[i]);
+            const qtyRaw = trim(qtyCol[i]);
+            const mpnRaw = trim(mpnCol[i]);
+            const makerRaw = trim(makerCol[i]);
+            const fourLRaw = trim(fourLCol[i]).toUpperCase();
+            const fourLCode = fourLRaw ? `4L${fourLRaw}` : '';
+            const vdText = trim(vd) || deriveVD(boxRaw);
+            const makerName = makerRaw || 'MAKER';
+            const cooText = fourLRaw || 'N/A';
+
+            if (!boxRaw || !pnRaw || !qtyRaw || !mpnRaw) {
+              controller.enqueue(encoder.encode(JSON.stringify({ type: 'error', error: `第 ${i + 1} 行缺少必填项` }) + '\n'));
+              controller.close();
+              return;
+            }
+
+            const boxCode = `BB${boxRaw}`;
+            const pnCode = `P${pnRaw}`;
+            const qtyCode = `Q${qtyRaw}`;
+            const mpnCode = `1P${mpnRaw}`;
+            const qrText = [boxCode, pnCode, qtyCode, mpnCode, fourLCode].filter(Boolean).join('||');
+
+            const [boxBarcode, pnBarcode, qtyBarcode, mpnBarcode, qrPng] = await Promise.all([
+              makeBarcode(boxCode),
+              makeBarcode(pnCode),
+              makeBarcode(qtyCode, 36),
+              makeBarcode(mpnCode),
+              makeQr(qrText),
+            ]);
+
+            const svg = buildSvg({
+              boxCode,
+              pnRaw,
+              qtyRaw,
+              mpnRaw,
+              makerName,
+              cooText,
+              vdText,
+              fourLCode,
+              barcodes: { boxBarcode, pnBarcode, qtyBarcode, mpnBarcode },
+              qrPng,
+            });
+
+            const png = await svgToPng(svg);
+            const dataUri = `data:image/png;base64,${png.toString('base64')}`;
+            const pill = [boxCode, pnCode, qtyCode, mpnCode, fourLCode || 'N/A'].join('||');
+            const filenameBase = pnRaw || `label-${i + 1}`;
+            
+            // 发送单个结果
+            controller.enqueue(encoder.encode(JSON.stringify({
+              type: 'result',
+              index: i,
+              data: { pill, image: dataUri, filename: `${filenameBase}.png` }
+            }) + '\n'));
+          }
+
+          // 发送完成信号
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+          controller.close();
+        } catch (error: any) {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'error', error: error?.message || '服务器错误' }) + '\n'));
+          controller.close();
+        }
       }
+    });
 
-      const boxCode = `BB${boxRaw}`;
-      const pnCode = `P${pnRaw}`;
-      const qtyCode = `Q${qtyRaw}`;
-      const mpnCode = `1P${mpnRaw}`;
-      const qrText = [boxCode, pnCode, qtyCode, mpnCode, fourLCode].filter(Boolean).join('||');
-
-      const [boxBarcode, pnBarcode, qtyBarcode, mpnBarcode, qrPng] = await Promise.all([
-        makeBarcode(boxCode),
-        makeBarcode(pnCode),
-        // QTY 条码再提升分辨率
-        makeBarcode(qtyCode, 36),
-        makeBarcode(mpnCode),
-        makeQr(qrText),
-      ]);
-
-      const svg = buildSvg({
-        boxCode,
-        pnRaw,
-        qtyRaw,
-        mpnRaw,
-        makerName,
-        cooText,
-        vdText,
-        fourLCode,
-        barcodes: { boxBarcode, pnBarcode, qtyBarcode, mpnBarcode },
-        qrPng,
-      });
-
-      const png = await svgToPng(svg);
-      const dataUri = `data:image/png;base64,${png.toString('base64')}`;
-      const pill = [boxCode, pnCode, qtyCode, mpnCode, fourLCode || 'N/A'].join('||');
-      const filenameBase = pnRaw || `label-${i + 1}`;
-      results.push({ pill, image: dataUri, filename: `${filenameBase}.png` });
-    }
-
-    return NextResponse.json({ results, labelHints });
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || '服务器错误' }, { status: 500 });
   }
